@@ -7,9 +7,15 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
+  title: 'FinSentinel - Personal Finance Management',
+  description: 'AI-powered personal finance management with voice entry, budgeting, goals tracking, and intelligent insights',
   generator: 'v0.app',
+  keywords: 'finance, budget, expenses, income, financial goals, money management, voice entry',
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+  },
   icons: {
     icon: [
       {
