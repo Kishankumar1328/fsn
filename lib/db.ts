@@ -246,6 +246,86 @@ function runMigrations() {
     CREATE INDEX IF NOT EXISTS idx_goals_user_id ON goals(user_id);
     CREATE INDEX IF NOT EXISTS idx_recurring_user_id ON recurring_transactions(user_id);
     CREATE INDEX IF NOT EXISTS idx_insights_user_id ON insights(user_id);
+
+    -- ── Investment Portfolio ──────────────────────────────────────────────
+    CREATE TABLE IF NOT EXISTS investments (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      ticker TEXT NOT NULL,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'stock',
+      shares REAL NOT NULL DEFAULT 0,
+      buy_price REAL NOT NULL,
+      current_price REAL NOT NULL,
+      buy_date INTEGER NOT NULL,
+      sector TEXT,
+      notes TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_investments_user_id ON investments(user_id);
+
+    -- ── Family Sharing ────────────────────────────────────────────────────
+    CREATE TABLE IF NOT EXISTS family_groups (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      owner_id TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS family_members (
+      id TEXT PRIMARY KEY,
+      group_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'member',
+      joined_at INTEGER NOT NULL,
+      FOREIGN KEY (group_id) REFERENCES family_groups(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS family_invites (
+      id TEXT PRIMARY KEY,
+      group_id TEXT NOT NULL,
+      invited_email TEXT NOT NULL,
+      invited_by TEXT NOT NULL,
+      token TEXT UNIQUE NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      expires_at INTEGER NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_family_members_group ON family_members(group_id);
+    CREATE INDEX IF NOT EXISTS idx_family_members_user  ON family_members(user_id);
+
+    -- ── Tax Events ────────────────────────────────────────────────────────
+    CREATE TABLE IF NOT EXISTS tax_events (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      year INTEGER NOT NULL,
+      category TEXT NOT NULL,
+      amount REAL NOT NULL,
+      description TEXT,
+      is_deductible BOOLEAN DEFAULT 0,
+      receipt_ref TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_tax_events_user_year ON tax_events(user_id, year);
+
+    -- ── Email Notification Log ────────────────────────────────────────────
+    CREATE TABLE IF NOT EXISTS notification_log (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      payload TEXT,
+      sent_at INTEGER NOT NULL
+    );
   `);
 
   try { db.exec('ALTER TABLE expenses ADD COLUMN mood TEXT;'); } catch (e) { }

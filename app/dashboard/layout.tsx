@@ -18,6 +18,9 @@ import {
   Zap,
   Heart,
   Mic,
+  BarChart3,
+  Users,
+  Receipt,
 } from 'lucide-react';
 
 const menuItems = [
@@ -26,6 +29,9 @@ const menuItems = [
   { href: '/dashboard/income', label: 'Income', icon: Wallet },
   { href: '/dashboard/budgets', label: 'Budgets', icon: Zap },
   { href: '/dashboard/goals', label: 'Goals', icon: Target },
+  { href: '/dashboard/investments', label: 'Investments', icon: BarChart3 },
+  { href: '/dashboard/tax', label: 'Tax Optimizer', icon: Receipt },
+  { href: '/dashboard/family', label: 'Family Sharing', icon: Users },
   { href: '/dashboard/future-impact', label: 'Future Impact', icon: LineChart },
   { href: '/dashboard/social-impact', label: 'Social Impact', icon: Heart },
   { href: '/dashboard/insights', label: 'AI Insights', icon: Sparkles },
@@ -102,8 +108,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <Link key={item.href} href={item.href}>
                 <div
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200 ${active
-                      ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 font-semibold'
-                      : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                    ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 font-semibold'
+                    : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
                     } ${!desktopSidebarOpen ? 'justify-center' : ''}`}
                 >
                   <Icon className="h-4 w-4 flex-shrink-0" />

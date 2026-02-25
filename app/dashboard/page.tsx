@@ -4,7 +4,7 @@ import Link from 'next/link';
 import {
   Plus, Mic, TrendingUp, TrendingDown, Wallet, Target, Sparkles,
   ArrowUpRight, ArrowDownRight, Zap, Heart, Loader2, BarChart3,
-  Activity, ShieldCheck, ChevronRight
+  Activity, ShieldCheck, ChevronRight, Receipt, Users
 } from 'lucide-react';
 import { SummaryCards } from '@/components/dashboard/summary-cards';
 import { ExpenseChart } from '@/components/dashboard/expense-chart';
@@ -200,6 +200,9 @@ export default function DashboardPage() {
               { href: '/dashboard/income', label: 'Add Income', icon: TrendingUp, color: 'text-green-600', bg: 'bg-green-500/10 hover:bg-green-500/20' },
               { href: '/dashboard/budgets', label: 'Manage Budgets', icon: BarChart3, color: 'text-blue-600', bg: 'bg-blue-500/10 hover:bg-blue-500/20' },
               { href: '/dashboard/goals', label: 'Track Goals', icon: Target, color: 'text-violet-600', bg: 'bg-violet-500/10 hover:bg-violet-500/20' },
+              { href: '/dashboard/investments', label: 'Investments', icon: TrendingUp, color: 'text-indigo-600', bg: 'bg-indigo-500/10 hover:bg-indigo-500/20' },
+              { href: '/dashboard/tax', label: 'Tax Optimizer', icon: Receipt, color: 'text-emerald-600', bg: 'bg-emerald-500/10 hover:bg-emerald-500/20' },
+              { href: '/dashboard/family', label: 'Family Sharing', icon: Users, color: 'text-pink-600', bg: 'bg-pink-500/10 hover:bg-pink-500/20' },
               { href: '/dashboard/insights', label: 'AI Insights', icon: Sparkles, color: 'text-amber-600', bg: 'bg-amber-500/10 hover:bg-amber-500/20' },
               { href: '/dashboard/reports', label: 'View Reports', icon: Activity, color: 'text-cyan-600', bg: 'bg-cyan-500/10 hover:bg-cyan-500/20' },
             ].map(({ href, label, icon: Icon, color, bg }) => (
