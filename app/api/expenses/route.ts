@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { getCurrentUser } from '@/lib/auth';
-import { getDb } from '@/lib/db';
+import { getDb, initializeDbAsync } from '@/lib/db';
 import { ExpenseSchema, ExpenseQuerySchema } from '@/lib/schemas';
 
 export async function POST(request: NextRequest) {
   try {
+    await initializeDbAsync();
     const user = getCurrentUser(request);
     if (!user) {
       return NextResponse.json(
@@ -24,15 +25,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { category, amount, description, date, payment_method, tags } = validation.data;
+    const { category, amount, description, date, payment_method, tags, mood, is_donation } = validation.data;
     const db = getDb();
     const now = Date.now();
     const expenseId = uuidv4();
 
     db.prepare(`
-      INSERT INTO expenses (id, user_id, category, amount, description, date, payment_method, tags, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(expenseId, user.id, category, amount, description || null, date, payment_method, tags || null, now, now);
+      INSERT INTO expenses (id, user_id, category, amount, description, date, payment_method, tags, mood, is_donation, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(expenseId, user.id, category, amount, description || null, date, payment_method, tags || null, mood || null, is_donation ? 1 : 0, now, now);
 
     const expense = db.prepare('SELECT * FROM expenses WHERE id = ?').get(expenseId);
 
@@ -43,10 +44,10 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error('[v0] Create expense error:', error);
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      { success: false, error: error.message || 'Internal server error' },
       { status: 500 }
     );
   }
@@ -54,6 +55,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    await initializeDbAsync();
     const user = getCurrentUser(request);
     if (!user) {
       return NextResponse.json(

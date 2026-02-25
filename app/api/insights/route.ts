@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
-import { verifyAuth } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth';
+import { formatCurrency } from '@/lib/utils-format';
 
 interface Insight {
   type: 'spending_pattern' | 'budget_warning' | 'saving_opportunity' | 'goal_progress' | 'trend';
@@ -12,15 +13,16 @@ interface Insight {
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = await verifyAuth(request);
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const userProfile = getCurrentUser(request);
+    if (!userProfile) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
+    const userId = userProfile.id;
 
     const db = getDb();
-    const now = new Date();
-    const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-    const twoMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, now.getDate());
+    const now = Date.now();
+    const monthAgo = now - 30 * 24 * 60 * 60 * 1000;
+    const twoMonthsAgo = now - 60 * 24 * 60 * 60 * 1000;
 
     const insights: Insight[] = [];
 
@@ -35,7 +37,7 @@ export async function GET(request: NextRequest) {
         ORDER BY total DESC
       `
       )
-      .all(userId, monthAgo.toISOString()) as Array<{ category: string; total: number; count: number }>;
+      .all(userId, monthAgo) as Array<{ category: string; total: number; count: number }>;
 
     // Get previous month expenses for trend analysis
     const previousExpenses = db
@@ -47,12 +49,48 @@ export async function GET(request: NextRequest) {
         GROUP BY category
       `
       )
-      .all(userId, twoMonthsAgo.toISOString(), monthAgo.toISOString()) as Array<{
-      category: string;
-      total: number;
-    }>;
+      .all(userId, twoMonthsAgo, monthAgo) as Array<{
+        category: string;
+        total: number;
+      }>;
 
     const totalCurrentSpending = currentExpenses.reduce((sum, e) => sum + e.total, 0);
+    const avgTransactionAmount = currentExpenses.length > 0 ? totalCurrentSpending / currentExpenses.reduce((sum, e) => sum + e.count, 0) : 0;
+
+    // Behavioral Detection - Emotional Spending
+    const emotionalExpenses = db.prepare(`
+        SELECT category, amount, mood, description
+        FROM expenses
+        WHERE user_id = ? AND date >= ? AND (mood = 'stressed' OR mood = 'bored' OR mood = 'sad')
+    `).all(userId, monthAgo) as Array<{ category: string; amount: number; mood: string; description: string }>;
+
+    if (emotionalExpenses.length > 0) {
+      const emotionalTotal = emotionalExpenses.reduce((sum, e) => sum + e.amount, 0);
+      if (emotionalTotal > totalCurrentSpending * 0.15) {
+        insights.push({
+          type: 'spending_pattern',
+          title: 'Emotional Spending Spike',
+          description: `You've spent ${formatCurrency(emotionalTotal)} while feeling stressed or bored. This accounts for ${(emotionalTotal / totalCurrentSpending * 100).toFixed(0)}% of your monthly budget.`,
+          severity: 'warning'
+        });
+      }
+    }
+
+    // Behavioral Detection - Anomaly Detection (Statistical)
+    const largeTransactions = db.prepare(`
+       SELECT category, amount, description
+       FROM expenses
+       WHERE user_id = ? AND date >= ? AND amount > ?
+    `).all(userId, monthAgo, avgTransactionAmount * 4) as Array<{ category: string; amount: number; description: string }>;
+
+    if (largeTransactions.length > 0) {
+      insights.push({
+        type: 'trend',
+        title: 'Financial Anomaly Detected',
+        description: `We noticed ${largeTransactions.length} transactions significantly higher than your average ($${avgTransactionAmount.toFixed(2)}). Review these for potential mis-logging or impulse.`,
+        severity: 'info'
+      });
+    }
 
     // Analyze spending patterns and trends
     for (const expense of currentExpenses) {
@@ -83,6 +121,42 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Behavioral Detection - Weekend Spikes
+    const weekendExpenses = db.prepare(`
+      SELECT SUM(amount) as total
+      FROM expenses
+      WHERE user_id = ? AND date >= ? AND (strftime('%w', date/1000, 'unixepoch') = '0' OR strftime('%w', date/1000, 'unixepoch') = '6')
+    `).get(userId, monthAgo) as { total: number };
+
+    const weekendTotal = weekendExpenses?.total || 0;
+    const weekdayExpenses = totalCurrentSpending - weekendTotal;
+    if (weekendTotal > weekdayExpenses * 0.8 && totalCurrentSpending > 0) {
+      insights.push({
+        type: 'spending_pattern',
+        title: 'Weekend Spike Detected',
+        description: 'Your weekend spending is significantly higher than your weekday average. This may indicate impulse spending.',
+        severity: 'warning'
+      });
+    }
+
+    // Behavioral Detection - Subscription Creep
+    const potentialSubscriptions = db.prepare(`
+      SELECT category, amount, COUNT(*) as frequency
+      FROM expenses
+      WHERE user_id = ? AND date >= ?
+      GROUP BY category, amount
+      HAVING frequency >= 2
+    `).all(userId, monthAgo) as Array<{ category: string; amount: number; frequency: number }>;
+
+    if (potentialSubscriptions.length > 3) {
+      insights.push({
+        type: 'spending_pattern',
+        title: 'Subscription Creep Alert',
+        description: `We detected ${potentialSubscriptions.length} recurring transaction patterns. Review these to optimize your monthly outflow.`,
+        severity: 'info'
+      });
+    }
+
     // Top spending category insight
     const topCategory = currentExpenses[0];
     if (topCategory) {
@@ -90,26 +164,26 @@ export async function GET(request: NextRequest) {
       insights.push({
         type: 'spending_pattern',
         title: 'Top Spending Category',
-        description: `You spent the most on ${topCategory.category} (${percentage.toFixed(1)}% of monthly expenses). Average transaction: $${(topCategory.total / topCategory.count).toFixed(2)}`,
+        description: `You spent the most on ${topCategory.category} (${percentage.toFixed(1)}% of monthly expenses).`,
         severity: 'info',
         data: { category: topCategory.category, amount: topCategory.total, percentage },
       });
     }
 
-    // Check budget warnings
+    // Budget warnings
     const budgets = db
       .prepare(
         `
-        SELECT id, category, name, limit
+        SELECT id, category, limit_amount
         FROM budgets
         WHERE user_id = ?
       `
       )
-      .all(userId) as Array<{ id: string; category: string; name: string; limit: number }>;
+      .all(userId) as Array<{ id: string; category: string; limit_amount: number }>;
 
     for (const budget of budgets) {
       const spent = currentExpenses.find((e) => e.category === budget.category)?.total || 0;
-      const percentage = (spent / budget.limit) * 100;
+      const percentage = (spent / budget.limit_amount) * 100;
 
       if (percentage > 80) {
         insights.push({
@@ -117,79 +191,65 @@ export async function GET(request: NextRequest) {
           title: percentage >= 100 ? 'Budget Exceeded' : 'Budget Alert',
           description:
             percentage >= 100
-              ? `You have exceeded your ${budget.name} budget by $${(spent - budget.limit).toFixed(2)}`
-              : `Your ${budget.name} budget is ${percentage.toFixed(0)}% used. $${(budget.limit - spent).toFixed(2)} remaining.`,
+              ? `You have exceeded your ${budget.category} budget by $${(spent - budget.limit_amount).toFixed(2)}`
+              : `Your ${budget.category} budget is ${percentage.toFixed(0)}% used.`,
           severity: percentage >= 100 ? 'warning' : 'info',
-          data: { category: budget.category, percentage, spent, limit: budget.limit },
+          data: { category: budget.category, percentage, spent, limit: budget.limit_amount },
         });
       }
     }
 
-    // Saving opportunities
-    if (currentExpenses.length > 0) {
-      const averageSpending = totalCurrentSpending / currentExpenses.length;
-      const highSpendCategories = currentExpenses.filter((e) => e.total > averageSpending * 1.5);
-
-      if (highSpendCategories.length > 0) {
-        const topHigh = highSpendCategories[0];
-        const potentialSavings = topHigh.total * 0.15;
-        insights.push({
-          type: 'saving_opportunity',
-          title: 'Saving Opportunity',
-          description: `By reducing ${topHigh.category} spending by just 15%, you could save approximately $${potentialSavings.toFixed(2)} this month.`,
-          severity: 'success',
-          data: { category: topHigh.category, potentialSavings },
-        });
-      }
-    }
-
-    // Goal progress insights
+    // Goal progress
     const goals = db
       .prepare(
         `
-        SELECT id, name, targetAmount, currentAmount, targetDate
+        SELECT id, title, target_amount, current_amount, deadline
         FROM goals
-        WHERE user_id = ? AND currentAmount < targetAmount
-        ORDER BY targetDate ASC
+        WHERE user_id = ? AND current_amount < target_amount
+        ORDER BY deadline ASC
+        LIMIT 1
       `
       )
       .all(userId) as Array<{
-      id: string;
-      name: string;
-      targetAmount: number;
-      currentAmount: number;
-      targetDate: string | null;
-    }>;
+        id: string;
+        title: string;
+        target_amount: number;
+        current_amount: number;
+        deadline: number;
+      }>;
 
-    for (const goal of goals.slice(0, 1)) {
-      const progress = (goal.currentAmount / goal.targetAmount) * 100;
-      const remaining = goal.targetAmount - goal.currentAmount;
+    if (goals.length > 0) {
+      const goal = goals[0];
+      const remaining = goal.target_amount - goal.current_amount;
+      const daysLeft = Math.ceil((goal.deadline - now) / (1000 * 60 * 60 * 24));
 
-      if (goal.targetDate) {
-        const daysLeft = Math.ceil((new Date(goal.targetDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-        if (daysLeft > 0) {
-          const dailyRequired = remaining / daysLeft;
-          insights.push({
-            type: 'goal_progress',
-            title: 'Goal Progress',
-            description: `To reach your ${goal.name} goal by ${new Date(goal.targetDate).toLocaleDateString()}, you need to save $${dailyRequired.toFixed(2)} per day.`,
-            severity: 'info',
-            data: { goalName: goal.name, progress, daysLeft, dailyRequired },
-          });
-        }
+      if (daysLeft > 0) {
+        const dailyRequired = remaining / daysLeft;
+        insights.push({
+          type: 'goal_progress',
+          title: 'Goal Target Analysis',
+          description: `To reach your ${goal.title} goal in ${daysLeft} days, you need to set aside $${dailyRequired.toFixed(2)} per day.`,
+          severity: 'info'
+        });
       }
     }
 
     return NextResponse.json({
-      insights,
-      summary: {
-        totalSpending: totalCurrentSpending,
-        categoriesTracked: currentExpenses.length,
-        budgetsOnTrack: budgets.length - insights.filter((i) => i.type === 'budget_warning').length,
+      success: true,
+      data: {
+        insights,
+        summary: {
+          totalSpending: totalCurrentSpending,
+          categoriesTracked: currentExpenses.length,
+          budgetsOnTrack: budgets.length - insights.filter((i: any) => i.type === 'budget_warning').length,
+        },
       },
     });
   } catch (error) {
     console.error('[v0] Insights error:', error);
-    return NextResponse.json({ error: 'Failed to generate insights' }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: 'Failed to generate insights' },
+      { status: 500 }
+    );
   }
 }

@@ -12,8 +12,13 @@ export async function POST(request: NextRequest) {
     const { format = 'json', startDate, endDate } = await request.json();
 
     const db = getDb();
-    const start = startDate ? new Date(startDate) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-    const end = endDate ? new Date(endDate) : new Date();
+    const start = startDate
+      ? new Date(startDate).getTime()
+      : new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
+    // Use END of the selected day (+24h-1ms) so all expenses logged that day are included
+    const end = endDate
+      ? new Date(endDate).getTime() + 24 * 60 * 60 * 1000 - 1
+      : Date.now();
 
     // Get user profile
     const user = db
@@ -30,13 +35,13 @@ export async function POST(request: NextRequest) {
         ORDER BY date DESC
       `
       )
-      .all(userId, start.toISOString(), end.toISOString()) as Array<{
-      id: string;
-      description: string;
-      amount: number;
-      category: string;
-      date: string;
-    }>;
+      .all(userId, start, end) as Array<{
+        id: string;
+        description: string;
+        amount: number;
+        category: string;
+        date: number;
+      }>;
 
     // Get income for the period
     const income = db
@@ -48,12 +53,12 @@ export async function POST(request: NextRequest) {
         ORDER BY date DESC
       `
       )
-      .all(userId, start.toISOString(), end.toISOString()) as Array<{
-      id: string;
-      source: string;
-      amount: number;
-      date: string;
-    }>;
+      .all(userId, start, end) as Array<{
+        id: string;
+        source: string;
+        amount: number;
+        date: number;
+      }>;
 
     // Calculate summary
     const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
@@ -70,18 +75,18 @@ export async function POST(request: NextRequest) {
     const budgets = db
       .prepare(
         `
-        SELECT category, name, limit
+        SELECT id, category, limit_amount
         FROM budgets
         WHERE user_id = ?
       `
       )
-      .all(userId) as Array<{ category: string; name: string; limit: number }>;
+      .all(userId) as Array<{ id: string; category: string; limit_amount: number }>;
 
     const reportData = {
       generatedAt: new Date().toISOString(),
       period: {
-        from: start.toISOString().split('T')[0],
-        to: end.toISOString().split('T')[0],
+        from: new Date(start).toISOString().split('T')[0],
+        to: new Date(end).toISOString().split('T')[0],
       },
       user: {
         name: user?.name || 'User',
@@ -94,19 +99,24 @@ export async function POST(request: NextRequest) {
         transactionCount: expenses.length + income.length,
       },
       expensesByCategory,
-      budgetComparison: budgets.map((b) => ({
-        category: b.category,
-        name: b.name,
-        limit: b.limit,
-        spent: expensesByCategory[b.category] || 0,
-        remaining: b.limit - (expensesByCategory[b.category] || 0),
-        percentage: ((expensesByCategory[b.category] || 0) / b.limit) * 100,
-      })),
+      budgetComparison: budgets.map((b) => {
+        // Case-insensitive match between budget category and expense category keys
+        const spentForCategory = Object.entries(expensesByCategory).reduce((sum, [cat, amt]) => {
+          return cat.toLowerCase() === b.category.toLowerCase() ? sum + amt : sum;
+        }, 0);
+        return {
+          category: b.category,
+          limit: b.limit_amount,
+          spent: spentForCategory,
+          remaining: b.limit_amount - spentForCategory,
+          percentage: (spentForCategory / b.limit_amount) * 100,
+        };
+      }),
       topExpenses: expenses.slice(0, 5).map((e) => ({
         description: e.description,
         amount: e.amount,
         category: e.category,
-        date: e.date.split('T')[0],
+        date: new Date(e.date).toISOString().split('T')[0],
       })),
     };
 

@@ -1,14 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
-import { v4 as uuidv4 } from 'uuid';
-import jwt from 'jsonwebtoken';
-import { getDb } from '@/lib/db';
+import { getDb, initializeDbAsync } from '@/lib/db';
 import { SignUpSchema } from '@/lib/schemas';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { NextRequest, NextResponse } from 'next/server';
+import { v4 as uuidv4 } from 'uuid';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key-change-in-production';
 
 export async function POST(request: NextRequest) {
   try {
+    // Initialize database first
+    await initializeDbAsync();
+
     const body = await request.json();
 
     // Validate input

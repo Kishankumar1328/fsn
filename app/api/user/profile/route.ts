@@ -1,10 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { getDb } from '@/lib/db';
+import { getDb, initializeDbAsync } from '@/lib/db';
 import { UpdateProfileSchema } from '@/lib/schemas';
+import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   try {
+    await initializeDbAsync();
+
     const user = getCurrentUser(request);
     if (!user) {
       return NextResponse.json(
@@ -28,6 +30,8 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    await initializeDbAsync();
+
     const user = getCurrentUser(request);
     if (!user) {
       return NextResponse.json(

@@ -19,18 +19,33 @@ interface InsightsSummary {
   };
 }
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+const fetcher = async (url: string) => {
+  const token = localStorage.getItem('authToken');
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch insights');
+  }
+
+  return response.json();
+};
 
 export function useInsights() {
-  const { data, error, isLoading } = useSWR<InsightsSummary>('/api/insights', fetcher, {
+  const { data, error, isLoading } = useSWR<{ success: boolean; data: InsightsSummary }>('/api/insights', fetcher, {
     revalidateOnFocus: false,
     revalidateOnReconnect: false,
     dedupingInterval: 60000,
   });
 
+  const insightsData = data?.data;
+
   return {
-    insights: data?.insights || [],
-    summary: data?.summary,
+    insights: insightsData?.insights || [],
+    summary: insightsData?.summary,
     loading: isLoading,
     error,
   };

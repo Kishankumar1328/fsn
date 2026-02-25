@@ -5,6 +5,7 @@ const fetcher = async (url: string) => {
   const response = await fetch(url, {
     headers: {
       Authorization: `Bearer ${token}`,
+      'Cache-Control': 'no-cache',
     },
   });
 
@@ -17,12 +18,18 @@ const fetcher = async (url: string) => {
 
 export function useGoals() {
   const { data, error, isLoading, mutate } = useSWR('/api/goals', fetcher, {
-    revalidateOnFocus: false,
+    revalidateOnFocus: true,
+    revalidateIfStale: true,
   });
 
-  const goals = data?.data || [];
+  const goals = (data?.data || []).map((goal: any) => ({
+    ...goal,
+    name: goal.title,
+    currentAmount: goal.current_amount,
+    targetAmount: goal.target_amount,
+  }));
 
-  const createGoal = async (goalData: any) => {
+  const addGoal = async (goalData: any) => {
     const token = localStorage.getItem('authToken');
     const response = await fetch('/api/goals', {
       method: 'POST',
@@ -30,14 +37,22 @@ export function useGoals() {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify(goalData),
+      body: JSON.stringify({
+        title: goalData.name,
+        target_amount: parseFloat(goalData.targetAmount),
+        current_amount: parseFloat(goalData.currentAmount || '0'),
+        deadline: new Date(goalData.deadline).getTime(),
+        category: goalData.category || 'other',
+        priority: goalData.priority || 'medium',
+      }),
     });
 
     if (!response.ok) {
-      throw new Error('Failed to create goal');
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to create goal');
     }
 
-    mutate();
+    await mutate();
   };
 
   const updateGoal = async (id: string, goalData: any) => {
@@ -52,10 +67,11 @@ export function useGoals() {
     });
 
     if (!response.ok) {
-      throw new Error('Failed to update goal');
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to update goal');
     }
 
-    mutate();
+    await mutate();
   };
 
   const deleteGoal = async (id: string) => {
@@ -68,17 +84,18 @@ export function useGoals() {
     });
 
     if (!response.ok) {
-      throw new Error('Failed to delete goal');
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to delete goal');
     }
 
-    mutate();
+    await mutate();
   };
 
   return {
     goals,
-    isLoading,
+    loading: isLoading,
     error,
-    createGoal,
+    addGoal,
     updateGoal,
     deleteGoal,
     mutate,

@@ -25,7 +25,18 @@ export const ExpenseSchema = z.object({
   description: z.string().optional(),
   date: z.number().positive('Valid date is required'),
   payment_method: z.string().default('cash'),
+  mood: z.string().optional(),
+  is_donation: z.boolean().default(false),
   tags: z.string().optional(),
+});
+
+// Donation schemas
+export const DonationSchema = z.object({
+  organization: z.string().min(1, 'Organization is required'),
+  amount: z.number().positive('Amount must be positive'),
+  cause: z.string().min(1, 'Cause is required'),
+  date: z.number().positive('Valid date is required'),
+  impact_description: z.string().optional(),
 });
 
 export const ExpenseQuerySchema = z.object({
@@ -50,6 +61,7 @@ export const IncomeSchema = z.object({
 export const BudgetSchema = z.object({
   category: z.string().min(1, 'Category is required'),
   limit_amount: z.number().positive('Limit must be positive'),
+  spent_amount: z.number().min(0).default(0),
   period: z.enum(['daily', 'weekly', 'monthly', 'yearly']),
   start_date: z.number(),
   end_date: z.number().optional(),
@@ -60,6 +72,7 @@ export const BudgetSchema = z.object({
 export const GoalSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   target_amount: z.number().positive('Target amount must be positive'),
+  current_amount: z.number().min(0).default(0),
   deadline: z.number().positive('Valid deadline is required'),
   category: z.string().min(1, 'Category is required'),
   priority: z.enum(['low', 'medium', 'high']).default('medium'),
@@ -98,4 +111,5 @@ export type BudgetInput = z.infer<typeof BudgetSchema>;
 export type GoalInput = z.infer<typeof GoalSchema>;
 export type UpdateGoalInput = z.infer<typeof UpdateGoalSchema>;
 export type RecurringTransactionInput = z.infer<typeof RecurringTransactionSchema>;
+export type DonationInput = z.infer<typeof DonationSchema>;
 export type VoiceTranscriptionInput = z.infer<typeof VoiceTranscriptionSchema>;

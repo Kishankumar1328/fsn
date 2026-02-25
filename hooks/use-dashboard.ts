@@ -17,8 +17,9 @@ const fetcher = async (url: string) => {
 
 export function useDashboard() {
   const { data, error, isLoading, mutate } = useSWR('/api/dashboard', fetcher, {
-    revalidateOnFocus: false,
-    revalidateInterval: 30000,
+    revalidateOnFocus: true,
+    revalidateOnReconnect: true,
+    refreshInterval: 10000,
   });
 
   const dashboardData = data?.data || null;

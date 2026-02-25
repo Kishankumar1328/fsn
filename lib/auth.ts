@@ -87,6 +87,14 @@ export function requireAuth(handler: Function) {
   };
 }
 
+export async function verifyAuth(request: NextRequest): Promise<string | null> {
+  const token = getTokenFromRequest(request);
+  if (!token) return null;
+  
+  const decoded = verifyToken(token);
+  return decoded ? decoded.userId : null;
+}
+
 export function getCurrentUser(request: NextRequest): UserProfile | null {
   const token = getTokenFromRequest(request);
   if (!token) {

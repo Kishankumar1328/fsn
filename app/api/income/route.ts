@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { getCurrentUser } from '@/lib/auth';
-import { getDb } from '@/lib/db';
+import { getDb, initializeDbAsync } from '@/lib/db';
 import { IncomeSchema } from '@/lib/schemas';
 
 export async function POST(request: NextRequest) {
   try {
+    await initializeDbAsync();
     const user = getCurrentUser(request);
     if (!user) {
       return NextResponse.json(
@@ -54,6 +55,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    await initializeDbAsync();
     const user = getCurrentUser(request);
     if (!user) {
       return NextResponse.json(

@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { getCurrentUser } from '@/lib/auth';
-import { getDb } from '@/lib/db';
+import { getDb, initializeDbAsync } from '@/lib/db';
 import { GoalSchema } from '@/lib/schemas';
 
 export async function POST(request: NextRequest) {
   try {
+    await initializeDbAsync();
     const user = getCurrentUser(request);
     if (!user) {
       return NextResponse.json(
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { title, target_amount, deadline, category, priority } = validation.data;
+    const { title, target_amount, current_amount, deadline, category, priority } = validation.data;
     const db = getDb();
     const now = Date.now();
     const goalId = uuidv4();
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
     db.prepare(`
       INSERT INTO goals (id, user_id, title, target_amount, current_amount, deadline, category, priority, status, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(goalId, user.id, title, target_amount, 0, deadline, category, priority, 'active', now, now);
+    `).run(goalId, user.id, title, target_amount, current_amount || 0, deadline, category, priority, 'active', now, now);
 
     const goal = db.prepare('SELECT * FROM goals WHERE id = ?').get(goalId);
 
@@ -54,6 +55,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    await initializeDbAsync();
     const user = getCurrentUser(request);
     if (!user) {
       return NextResponse.json(

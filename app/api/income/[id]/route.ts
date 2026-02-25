@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { getDb } from '@/lib/db';
+import { getDb, initializeDbAsync } from '@/lib/db';
 import { IncomeSchema } from '@/lib/schemas';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    await initializeDbAsync();
+    const { id } = await params;
     const user = getCurrentUser(request);
     if (!user) {
       return NextResponse.json(
@@ -14,7 +16,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     }
 
     const db = getDb();
-    const income = db.prepare('SELECT * FROM income WHERE id = ? AND user_id = ?').get(params.id, user.id);
+    const income = db.prepare('SELECT * FROM income WHERE id = ? AND user_id = ?').get(id, user.id);
 
     if (!income) {
       return NextResponse.json(
@@ -36,8 +38,10 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    await initializeDbAsync();
+    const { id } = await params;
     const user = getCurrentUser(request);
     if (!user) {
       return NextResponse.json(
@@ -47,7 +51,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     const db = getDb();
-    const existing = db.prepare('SELECT * FROM income WHERE id = ? AND user_id = ?').get(params.id, user.id);
+    const existing = db.prepare('SELECT * FROM income WHERE id = ? AND user_id = ?').get(id, user.id);
 
     if (!existing) {
       return NextResponse.json(
@@ -97,11 +101,11 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       values.push(recurrence_period);
     }
 
-    values.push(params.id, user.id);
+    values.push(id, user.id);
 
     db.prepare(`UPDATE income SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`).run(...values);
 
-    const updated = db.prepare('SELECT * FROM income WHERE id = ?').get(params.id);
+    const updated = db.prepare('SELECT * FROM income WHERE id = ?').get(id);
 
     return NextResponse.json({
       success: true,
@@ -116,8 +120,10 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    await initializeDbAsync();
+    const { id } = await params;
     const user = getCurrentUser(request);
     if (!user) {
       return NextResponse.json(
@@ -127,7 +133,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     }
 
     const db = getDb();
-    const existing = db.prepare('SELECT * FROM income WHERE id = ? AND user_id = ?').get(params.id, user.id);
+    const existing = db.prepare('SELECT * FROM income WHERE id = ? AND user_id = ?').get(id, user.id);
 
     if (!existing) {
       return NextResponse.json(
@@ -136,7 +142,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       );
     }
 
-    db.prepare('DELETE FROM income WHERE id = ?').run(params.id);
+    db.prepare('DELETE FROM income WHERE id = ?').run(id);
 
     return NextResponse.json({
       success: true,

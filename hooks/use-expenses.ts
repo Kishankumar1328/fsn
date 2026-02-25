@@ -41,7 +41,8 @@ export function useExpenses(page = 1, limit = 20, category?: string) {
     });
 
     if (!response.ok) {
-      throw new Error('Failed to create expense');
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to create expense');
     }
 
     const newExpense = await response.json();
@@ -86,7 +87,7 @@ export function useExpenses(page = 1, limit = 20, category?: string) {
   return {
     expenses,
     pagination,
-    isLoading,
+    loading: isLoading,
     error,
     createExpense,
     updateExpense,

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { verifyAuth } from '@/lib/auth';
 import { v4 as uuid } from 'uuid';
-import { recurringSchema } from '@/lib/schemas';
+import { RecurringTransactionSchema } from '@/lib/schemas';
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,10 +15,10 @@ export async function GET(request: NextRequest) {
     const recurring = db
       .prepare(
         `
-        SELECT id, name, amount, category, frequency, nextDueDate, isActive
+        SELECT id, type, description, amount, category, frequency, next_date, is_active
         FROM recurring_transactions
         WHERE user_id = ?
-        ORDER BY nextDueDate ASC
+        ORDER BY next_date ASC
       `
       )
       .all(userId);
@@ -38,17 +38,18 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const validated = recurringSchema.parse(body);
+    const validated = RecurringTransactionSchema.parse(body);
 
     const db = getDb();
     const id = uuid();
+    const now = Date.now();
 
     db.prepare(
       `
-      INSERT INTO recurring_transactions (id, user_id, name, amount, category, frequency, nextDueDate, isActive)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+      INSERT INTO recurring_transactions (id, user_id, type, amount, description, category, frequency, next_date, is_active, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
     `
-    ).run(id, userId, validated.name, validated.amount, validated.category, validated.frequency, validated.nextDueDate);
+    ).run(id, userId, validated.type, validated.amount, validated.description || null, validated.category, validated.frequency, validated.next_date, now, now);
 
     return NextResponse.json({ id }, { status: 201 });
   } catch (error) {
