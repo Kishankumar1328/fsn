@@ -108,7 +108,7 @@ export function VoiceAssistant() {
     };
 
     return (
-        <div className="fixed bottom-8 right-8 z-[100] flex flex-col items-end gap-4">
+        <div className="fixed bottom-20 right-4 md:bottom-8 md:right-8 z-[100] flex flex-col items-end gap-4">
             {isOpen && (
                 <div className="bg-background border shadow-2xl rounded-2xl p-4 w-72 animate-in slide-in-from-bottom-4 duration-300">
                     <div className="flex justify-between items-center mb-2">

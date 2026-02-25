@@ -55,6 +55,15 @@ const NAV_GROUPS = [
 
 const ALL_ITEMS = NAV_GROUPS.flatMap(g => g.items);
 
+// Bottom nav items shown on mobile (most commonly used)
+const BOTTOM_NAV_ITEMS = [
+  { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
+  { href: '/dashboard/expenses', label: 'Expenses', icon: TrendingUp },
+  { href: '/dashboard/budgets', label: 'Budgets', icon: Zap },
+  { href: '/dashboard/goals', label: 'Goals', icon: Target },
+  { href: '/dashboard/insights', label: 'AI', icon: Sparkles },
+];
+
 function SidebarContent({
   collapsed, pathname, user, handleLogout, onClose,
 }: {
@@ -67,7 +76,7 @@ function SidebarContent({
     <div className="flex flex-col h-full">
       {/* Logo */}
       <div className="flex items-center justify-between px-4 py-5 border-b border-border">
-        <Link href="/dashboard" className="flex items-center gap-3 min-w-0">
+        <Link href="/dashboard" className="flex items-center gap-3 min-w-0" onClick={onClose}>
           <div className="w-9 h-9 flex-shrink-0 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
             <span className="text-white font-black text-sm">FS</span>
           </div>
@@ -166,9 +175,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }, []);
 
+  // Close mobile drawer when route changes
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
   const currentPage = ALL_ITEMS.find(i =>
     i.href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(i.href)
   );
+
+  const isActive = (href: string) =>
+    href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(href);
 
   if (authLoading) {
     return (
@@ -196,7 +213,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!user) return null;
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div className="flex h-[100dvh] bg-background overflow-hidden">
       {/* Aurora bg */}
       <div className="aurora-bg"><div className="aurora-orb aurora-orb-1" /><div className="aurora-orb aurora-orb-2" /></div>
 
@@ -224,8 +241,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* ── Mobile Drawer ─────────────────────────── */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
-          <div className="absolute inset-0 bg-black/60 dark:bg-black/60 light:bg-black/20" onClick={() => setMobileOpen(false)} />
-          <div className="absolute left-0 top-0 h-full w-72 bg-sidebar border-r border-border overflow-y-auto">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setMobileOpen(false)}
+          />
+          <div className="absolute left-0 top-0 h-full w-72 max-w-[85vw] bg-sidebar border-r border-border overflow-y-auto animate-in slide-in-from-left duration-300">
             <SidebarContent collapsed={false} pathname={pathname} user={user} handleLogout={logout} onClose={() => setMobileOpen(false)} />
           </div>
         </div>
@@ -235,17 +255,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
 
         {/* Top Header */}
-        <header className="flex-shrink-0 px-5 md:px-8 py-4 border-b border-border bg-background/90 flex items-center justify-between gap-4 z-30">
+        <header className="flex-shrink-0 px-4 md:px-8 py-3 md:py-4 border-b border-border bg-background/90 backdrop-blur-sm flex items-center justify-between gap-3 z-30">
           {/* Left */}
-          <div className="flex items-center gap-4 min-w-0">
+          <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() => setMobileOpen(true)}
-              className="md:hidden p-2 rounded-xl hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+              className="md:hidden p-2 rounded-xl hover:bg-accent text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+              aria-label="Open menu"
             >
               <Menu className="h-5 w-5" />
             </button>
             <div className="min-w-0">
-              <h1 className="font-bold text-foreground text-lg leading-tight truncate">
+              <h1 className="font-bold text-foreground text-base md:text-lg leading-tight truncate">
                 {currentPage?.label || 'Dashboard'}
               </h1>
               <p className="text-xs text-muted-foreground hidden sm:block">
@@ -255,8 +276,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
 
           {/* Right */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Search */}
+          <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
+            {/* Search — hidden on small screens */}
             <div className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-xl bg-accent/50 border border-border text-xs text-muted-foreground w-52 cursor-pointer hover:bg-accent transition-colors">
               <Search className="h-3.5 w-3.5" />
               <span>Search anything…</span>
@@ -264,8 +285,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
 
             {/* Notifications */}
-            <button className="relative p-2.5 rounded-xl hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
-              <Bell className="h-4.5 w-4.5" />
+            <button className="relative p-2 md:p-2.5 rounded-xl hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
+              <Bell className="h-4 w-4" />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-primary border-2 border-background" />
             </button>
 
@@ -273,19 +294,50 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <ThemeToggle />
 
             {/* Avatar */}
-            <button className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center font-bold text-sm text-white shadow-md shadow-violet-500/30 hover:shadow-lg hover:shadow-violet-500/40 transition-shadow">
+            <button className="w-8 h-8 md:w-9 md:h-9 rounded-xl bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center font-bold text-sm text-white shadow-md shadow-violet-500/30 hover:shadow-lg hover:shadow-violet-500/40 transition-shadow flex-shrink-0">
               {user.name?.[0]?.toUpperCase() || 'U'}
             </button>
           </div>
         </header>
 
-        {/* Content */}
+        {/* Content — extra bottom padding on mobile for bottom nav */}
         <main className="flex-1 overflow-auto">
-          <div className="p-5 md:p-8 max-w-screen-2xl mx-auto">
+          <div className="p-4 md:p-8 max-w-screen-2xl mx-auto pb-24 md:pb-8">
             {children}
           </div>
         </main>
       </div>
+
+      {/* ── Mobile Bottom Navigation ─────────────── */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-md border-t border-border safe-area-bottom">
+        <div className="flex items-center justify-around px-1 py-1">
+          {BOTTOM_NAV_ITEMS.map(item => {
+            const Icon = item.icon;
+            const active = isActive(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all duration-200 min-w-[56px]
+                  ${active
+                    ? 'text-primary'
+                    : 'text-muted-foreground hover:text-foreground'
+                  }`}
+              >
+                <div className={`relative p-1.5 rounded-xl transition-all duration-200 ${active ? 'bg-primary/10' : ''}`}>
+                  <Icon className="h-5 w-5" />
+                  {active && (
+                    <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-primary" />
+                  )}
+                </div>
+                <span className={`text-[10px] font-semibold leading-none ${active ? 'text-primary' : ''}`}>
+                  {item.label}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
 
       <VoiceAssistant />
     </div>

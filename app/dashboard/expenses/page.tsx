@@ -83,17 +83,17 @@ export default function ExpensesPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">Expenses</h1>
-          <p className="text-muted-foreground">Track and manage your spending</p>
+    <div className="space-y-5 md:space-y-6">
+      <div className="flex items-start sm:items-center justify-between gap-3">
+        <div className="space-y-1">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Expenses</h1>
+          <p className="text-sm text-muted-foreground">Track and manage your spending</p>
         </div>
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button size="sm" className="flex-shrink-0">
               <Plus className="mr-2 h-4 w-4" />
-              Add Expense
+              <span className="hidden sm:inline">Add </span>Expense
             </Button>
           </DialogTrigger>
           <DialogContent>
@@ -161,15 +161,15 @@ export default function ExpensesPage() {
         </Dialog>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-4">
+      <div className="flex flex-col sm:flex-row gap-3">
         <Input
           placeholder="Search expenses..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="md:w-1/2"
+          className="flex-1"
         />
         <Select value={filterCategory} onValueChange={setFilterCategory}>
-          <SelectTrigger className="md:w-1/4">
+          <SelectTrigger className="sm:w-48">
             <SelectValue placeholder="All Categories" />
           </SelectTrigger>
           <SelectContent>
@@ -194,46 +194,44 @@ export default function ExpensesPage() {
               <p>No transactions found matching your filters.</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {filteredExpenses.map((expense: any) => (
                 <div
                   key={expense.id}
-                  className="flex items-center justify-between p-4 bg-muted/50 rounded-2xl hover:bg-muted transition-all border border-transparent hover:border-primary/10"
+                  className="flex items-center justify-between p-3 sm:p-4 bg-muted/50 rounded-2xl hover:bg-muted transition-all border border-transparent hover:border-primary/10"
                 >
-                  <div className="flex-1 flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-full bg-background border flex items-center justify-center text-xs font-black uppercase">
+                  <div className="flex-1 flex items-center gap-3 sm:gap-4 min-w-0">
+                    <div className="h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0 rounded-full bg-background border flex items-center justify-center text-xs font-black uppercase">
                       {expense.category.substring(0, 2)}
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-bold capitalize">{expense.category}</p>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="font-bold capitalize text-sm sm:text-base">{expense.category}</p>
                         {expense.mood && (
-                          <span className="px-2 py-0.5 rounded-full bg-primary/10 text-[10px] font-bold text-primary uppercase tracking-widest">{expense.mood}</span>
+                          <span className="px-1.5 py-0.5 rounded-full bg-primary/10 text-[9px] sm:text-[10px] font-bold text-primary uppercase tracking-widest">{expense.mood}</span>
                         )}
                         {expense.is_donation === 1 && (
-                          <span className="px-2 py-0.5 rounded-full bg-pink-100 text-[10px] font-bold text-pink-600 uppercase tracking-widest flex items-center gap-1">
+                          <span className="hidden sm:flex px-2 py-0.5 rounded-full bg-pink-100 text-[10px] font-bold text-pink-600 uppercase tracking-widest items-center gap-1">
                             <Heart className="h-2 w-2" /> Impact
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground mt-0.5">
-                        <span>{expense.description || 'No description'}</span>
-                        <span>•</span>
-                        <span>{formatDate(expense.date)}</span>
+                      <div className="flex items-center gap-1.5 text-xs sm:text-sm text-muted-foreground mt-0.5 truncate">
+                        <span className="hidden sm:inline truncate">{expense.description || 'No description'}</span>
+                        <span className="hidden sm:inline">•</span>
+                        <span className="truncate">{formatDate(expense.date)}</span>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <p className="font-semibold">{formatCurrency(expense.amount)}</p>
-                    </div>
+                  <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
+                    <p className="font-semibold text-sm sm:text-base">{formatCurrency(expense.amount)}</p>
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={() => deleteExpense(expense.id)}
-                      className="text-destructive hover:text-destructive"
+                      className="text-destructive hover:text-destructive h-8 w-8"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     </Button>
                   </div>
                 </div>

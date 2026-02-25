@@ -104,11 +104,11 @@ export default function GoalsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-5 md:space-y-6">
+      <div className="flex items-start sm:items-center justify-between gap-3">
         <div className="animate-in fade-in slide-in-from-left-4 duration-500">
-          <h1 className="text-3xl font-bold text-foreground">Financial Goals</h1>
-          <p className="text-muted-foreground mt-1">Track and manage your savings milestones</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Financial Goals</h1>
+          <p className="text-sm text-muted-foreground mt-1">Track and manage your savings milestones</p>
         </div>
         <Button
           onClick={() => {
@@ -120,12 +120,13 @@ export default function GoalsPage() {
             }
           }}
           variant={showForm ? 'outline' : 'default'}
-          className="gap-2 shadow-sm transition-all duration-300"
+          size="sm"
+          className="gap-2 shadow-sm transition-all duration-300 flex-shrink-0"
         >
           {showForm ? 'Cancel' : (
             <>
               <Plus className="h-4 w-4" />
-              New Goal
+              <span className="hidden sm:inline">New </span>Goal
             </>
           )}
         </Button>
@@ -218,7 +219,7 @@ export default function GoalsPage() {
           <p className="text-muted-foreground font-medium animate-pulse">Synchronizing milestones...</p>
         </div>
       ) : goals && goals.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in duration-700">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 animate-in fade-in duration-700">
           {goals.map((goal: any) => {
             const progress = goal.targetAmount > 0 ? (goal.currentAmount / goal.targetAmount) * 100 : 0;
             const daysRemaining = Math.ceil(

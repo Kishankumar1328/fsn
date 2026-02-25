@@ -93,11 +93,11 @@ export default function BudgetsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-5 md:space-y-6">
+      <div className="flex items-start sm:items-center justify-between gap-3">
         <div className="animate-in fade-in slide-in-from-left-4 duration-500">
-          <h1 className="text-3xl font-bold text-foreground">Budgets</h1>
-          <p className="text-muted-foreground mt-1">Set and manage spending limits for each category</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Budgets</h1>
+          <p className="text-sm text-muted-foreground mt-1">Set and manage spending limits for each category</p>
         </div>
         <Button
           onClick={() => {
@@ -109,12 +109,13 @@ export default function BudgetsPage() {
             }
           }}
           variant={showForm ? 'outline' : 'default'}
-          className="gap-2 shadow-sm transition-all duration-300"
+          size="sm"
+          className="gap-2 shadow-sm transition-all duration-300 flex-shrink-0"
         >
           {showForm ? 'Cancel' : (
             <>
               <Plus className="h-4 w-4" />
-              New Budget
+              <span className="hidden sm:inline">New </span>Budget
             </>
           )}
         </Button>
@@ -201,7 +202,7 @@ export default function BudgetsPage() {
           <p className="font-medium animate-pulse">Synchronizing your budgets...</p>
         </div>
       ) : budgets && budgets.length > 0 ? (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 animate-in fade-in duration-700">
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 animate-in fade-in duration-700">
           {budgets.map((budget: any) => {
             const usageRatio = budget.limit > 0 ? budget.spent / budget.limit : 0;
             const isOverBudget = usageRatio > 1;
