@@ -154,10 +154,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [formattedDate, setFormattedDate] = useState('');
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/auth/signin');
   }, [user, authLoading, router]);
+
+  useEffect(() => {
+    setFormattedDate(
+      new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+    );
+  }, []);
 
   const currentPage = ALL_ITEMS.find(i =>
     i.href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(i.href)
@@ -242,7 +249,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {currentPage?.label || 'Dashboard'}
               </h1>
               <p className="text-xs text-muted-foreground hidden sm:block">
-                {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                {formattedDate}
               </p>
             </div>
           </div>
