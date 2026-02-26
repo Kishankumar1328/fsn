@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
         const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
 
         // Get all budgets with user email
-        const budgets = db.prepare(`
+        const budgets = await db.prepare(`
       SELECT b.*, u.email, u.name
       FROM budgets b
       JOIN users u ON u.id = b.user_id
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
         const alerts: Array<{ email: string; name: string; category: string; spent: number; limit: number; pct: number }> = [];
 
         for (const budget of budgets) {
-            const spentResult = db.prepare(`
+            const spentResult = await db.prepare(`
         SELECT COALESCE(SUM(amount), 0) as spent
         FROM expenses
         WHERE user_id = ? AND LOWER(category) = LOWER(?) AND date >= ?
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
             const emailSent = await sendBudgetAlertEmail(email, userAlerts[0].name, userAlerts);
             if (emailSent) {
                 // Log notification
-                db.prepare(`
+                await db.prepare(`
           INSERT INTO notification_log (id, user_id, type, payload, sent_at)
           SELECT ?, id, 'budget_alert', ?, ? FROM users WHERE email = ?
         `).run(uuidv4(), JSON.stringify(userAlerts.map(a => a.category)), now, email);
@@ -132,3 +132,4 @@ async function sendBudgetAlertEmail(
 
     return res.ok;
 }
+

@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     const db = getDb();
 
     // Find user
-    const user = db.prepare('SELECT id, email, name, password_hash FROM users WHERE email = ?').get(email);
+    const user = await db.prepare('SELECT id, email, name, password_hash FROM users WHERE email = ?').get(email) as any;
     if (!user) {
       return NextResponse.json(
         { success: false, error: 'Invalid credentials' },
@@ -77,3 +77,4 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+

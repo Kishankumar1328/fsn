@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   try {
     await initializeDbAsync();
 
-    const user = getCurrentUser(request);
+    const user = await getCurrentUser(request);
     if (!user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
@@ -32,7 +32,7 @@ export async function PUT(request: NextRequest) {
   try {
     await initializeDbAsync();
 
-    const user = getCurrentUser(request);
+    const user = await getCurrentUser(request);
     if (!user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
@@ -82,10 +82,10 @@ export async function PUT(request: NextRequest) {
     values.push(now);
     values.push(user.id);
 
-    db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+    await db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...values);
 
     // Fetch updated user
-    const updatedUser = db.prepare(`
+    const updatedUser = await db.prepare(`
       SELECT id, email, name, currency, timezone FROM users WHERE id = ?
     `).get(user.id) as any;
 
@@ -107,3 +107,4 @@ export async function PUT(request: NextRequest) {
     );
   }
 }
+

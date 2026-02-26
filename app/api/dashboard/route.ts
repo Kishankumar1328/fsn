@@ -5,7 +5,7 @@ import { getDb, initializeDbAsync } from '@/lib/db';
 export async function GET(request: NextRequest) {
   try {
     await initializeDbAsync();
-    const user = getCurrentUser(request);
+    const user = await getCurrentUser(request);
     if (!user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
@@ -18,21 +18,21 @@ export async function GET(request: NextRequest) {
     const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
 
     // Get total expenses for current month
-    const expenseResult = db.prepare(`
+    const expenseResult = await db.prepare(`
       SELECT SUM(amount) as total FROM expenses 
       WHERE user_id = ? AND date >= ?
     `).get(user.id, thirtyDaysAgo) as any;
     const totalExpenses = expenseResult?.total || 0;
 
     // Get total income for current month
-    const incomeResult = db.prepare(`
+    const incomeResult = await db.prepare(`
       SELECT SUM(amount) as total FROM income 
       WHERE user_id = ? AND date >= ?
     `).get(user.id, thirtyDaysAgo) as any;
     const totalIncome = incomeResult?.total || 0;
 
     // Get expenses by category
-    const categoryExpenses = db.prepare(`
+    const categoryExpenses = await db.prepare(`
       SELECT category, SUM(amount) as amount, COUNT(*) as count
       FROM expenses 
       WHERE user_id = ? AND date >= ?
@@ -48,15 +48,15 @@ export async function GET(request: NextRequest) {
     }));
 
     // Get budget status — fetch ALL budgets for user and calculate real spending per category
-    const budgets = db.prepare(`
+    const budgets = await db.prepare(`
       SELECT b.id, b.category, b.limit_amount, b.alert_threshold
       FROM budgets b
       WHERE b.user_id = ?
       ORDER BY b.created_at DESC
     `).all(user.id) as any[];
 
-    const budgetStatus = budgets.map((budget: any) => {
-      const spentResult = db.prepare(`
+    const budgetStatus = await Promise.all(budgets.map(async (budget: any) => {
+      const spentResult = await db.prepare(`
         SELECT COALESCE(SUM(amount), 0) as spent
         FROM expenses
         WHERE user_id = ? AND LOWER(category) = LOWER(?) AND date >= ?
@@ -67,10 +67,10 @@ export async function GET(request: NextRequest) {
         limit: budget.limit_amount,
         threshold: budget.alert_threshold,
       };
-    });
+    }));
 
     // Get upcoming goals
-    const upcomingGoals = db.prepare(`
+    const upcomingGoals = await db.prepare(`
       SELECT * FROM goals
       WHERE user_id = ? AND status = 'active' AND deadline > ?
       ORDER BY deadline ASC
@@ -146,3 +146,4 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+

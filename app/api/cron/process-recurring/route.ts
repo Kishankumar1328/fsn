@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
         let processed = 0;
 
         // Fetch all active recurring transactions due today or earlier
-        const dueTransactions = db.prepare(`
+        const dueTransactions = await db.prepare(`
       SELECT * FROM recurring_transactions
       WHERE is_active = 1 AND next_date <= ?
     `).all(now) as any[];
@@ -25,12 +25,12 @@ export async function GET(request: NextRequest) {
             const id = uuidv4();
 
             if (tx.type === 'expense') {
-                db.prepare(`
+                await db.prepare(`
           INSERT INTO expenses (id, user_id, category, amount, description, date, payment_method, is_donation, created_at, updated_at)
           VALUES (?, ?, ?, ?, ?, ?, 'auto-recurring', 0, ?, ?)
         `).run(id, tx.user_id, tx.category, tx.amount, tx.description, now, now, now);
             } else if (tx.type === 'income') {
-                db.prepare(`
+                await db.prepare(`
           INSERT INTO income (id, user_id, source, amount, description, date, recurring, recurrence_period, created_at, updated_at)
           VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?)
         `).run(id, tx.user_id, tx.category, tx.amount, tx.description, now, tx.frequency, now, now);
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
 
             // Compute next run date
             const nextDate = computeNextDate(tx.next_date, tx.frequency);
-            db.prepare(`
+            await db.prepare(`
         UPDATE recurring_transactions SET last_executed = ?, next_date = ?, updated_at = ? WHERE id = ?
       `).run(now, nextDate, now, tx.id);
 
@@ -64,3 +64,4 @@ function computeNextDate(currentNext: number, frequency: string): number {
     }
     return d.getTime();
 }
+

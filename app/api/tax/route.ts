@@ -32,19 +32,19 @@ const TAX_TIPS: Record<string, string> = {
 export async function GET(request: NextRequest) {
     try {
         await initializeDbAsync();
-        const user = getCurrentUser(request);
+        const user = await getCurrentUser(request);
         if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
         const url = new URL(request.url);
         const year = parseInt(url.searchParams.get('year') || String(new Date().getFullYear()));
 
         const db = getDb();
-        const events = db.prepare(`
+        const events = await db.prepare(`
       SELECT * FROM tax_events WHERE user_id = ? AND year = ? ORDER BY created_at DESC
     `).all(user.id, year) as any[];
 
         // Auto-scan deductible expenses from the main expenses table
-        const deductibleExpenses = db.prepare(`
+        const deductibleExpenses = await db.prepare(`
       SELECT category, SUM(amount) as total, COUNT(*) as count
       FROM expenses
       WHERE user_id = ?
@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         await initializeDbAsync();
-        const user = getCurrentUser(request);
+        const user = await getCurrentUser(request);
         if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
         const body = await request.json();
@@ -99,15 +99,16 @@ export async function POST(request: NextRequest) {
         const now = Date.now();
         const id = uuidv4();
 
-        db.prepare(`
+        await db.prepare(`
       INSERT INTO tax_events (id, user_id, year, category, amount, description, is_deductible, receipt_ref, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(id, user.id, year, category, amount, description || null, is_deductible ? 1 : 0, receipt_ref || null, now, now);
 
-        const event = db.prepare(`SELECT * FROM tax_events WHERE id = ?`).get(id);
+        const event = await db.prepare(`SELECT * FROM tax_events WHERE id = ?`).get(id);
         return NextResponse.json({ success: true, data: event }, { status: 201 });
     } catch (error) {
         console.error('[FinSentinel] Tax POST error:', error);
         return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
     }
 }
+

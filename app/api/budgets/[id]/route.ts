@@ -7,7 +7,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   try {
     await initializeDbAsync();
     const { id } = await params;
-    const user = getCurrentUser(request);
+    const user = await getCurrentUser(request);
     if (!user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const db = getDb();
-    const budget = db.prepare('SELECT * FROM budgets WHERE id = ? AND user_id = ?').get(id, user.id);
+    const budget = await db.prepare('SELECT * FROM budgets WHERE id = ? AND user_id = ?').get(id, user.id);
 
     if (!budget) {
       return NextResponse.json(
@@ -42,7 +42,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   try {
     await initializeDbAsync();
     const { id } = await params;
-    const user = getCurrentUser(request);
+    const user = await getCurrentUser(request);
     if (!user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
@@ -51,7 +51,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const db = getDb();
-    const existing = db.prepare('SELECT * FROM budgets WHERE id = ? AND user_id = ?').get(id, user.id);
+    const existing = await db.prepare('SELECT * FROM budgets WHERE id = ? AND user_id = ?').get(id, user.id);
 
     if (!existing) {
       return NextResponse.json(
@@ -109,17 +109,17 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     values.push(id, user.id);
 
-    const result = db.prepare(`UPDATE budgets SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`).run(...values);
+    const result = await db.prepare(`UPDATE budgets SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`).run(...values) as any;
     console.log(`[v0] Budget update result for ${id}:`, result);
 
-    if (result.changes === 0) {
+    if (!result || (result.affectedRows === 0 && result.changes === 0)) {
       return NextResponse.json(
         { success: false, error: 'Failed to update budget (no changes made or unauthorized)' },
         { status: 400 }
       );
     }
 
-    const updated = db.prepare('SELECT * FROM budgets WHERE id = ?').get(id);
+    const updated = await db.prepare('SELECT * FROM budgets WHERE id = ?').get(id);
 
     return NextResponse.json({
       success: true,
@@ -139,7 +139,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   try {
     await initializeDbAsync();
     const { id } = await params;
-    const user = getCurrentUser(request);
+    const user = await getCurrentUser(request);
     if (!user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
@@ -148,7 +148,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     }
 
     const db = getDb();
-    const existing = db.prepare('SELECT * FROM budgets WHERE id = ? AND user_id = ?').get(id, user.id);
+    const existing = await db.prepare('SELECT * FROM budgets WHERE id = ? AND user_id = ?').get(id, user.id);
 
     if (!existing) {
       return NextResponse.json(
@@ -157,7 +157,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       );
     }
 
-    db.prepare('DELETE FROM budgets WHERE id = ? AND user_id = ?').run(id, user.id);
+    await db.prepare('DELETE FROM budgets WHERE id = ? AND user_id = ?').run(id, user.id);
 
     return NextResponse.json({
       success: true,

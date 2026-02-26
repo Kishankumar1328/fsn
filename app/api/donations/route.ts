@@ -7,13 +7,13 @@ import { v4 as uuidv4 } from 'uuid';
 export async function GET(request: NextRequest) {
     try {
         await initializeDbAsync();
-        const user = getCurrentUser(request);
+        const user = await getCurrentUser(request);
         if (!user) {
             return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
         }
 
         const db = getDb();
-        const donations = db.prepare('SELECT * FROM donations WHERE user_id = ? ORDER BY date DESC').all(user.id);
+        const donations = await db.prepare('SELECT * FROM donations WHERE user_id = ? ORDER BY date DESC').all(user.id);
 
         return NextResponse.json({
             success: true,
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         await initializeDbAsync();
-        const user = getCurrentUser(request);
+        const user = await getCurrentUser(request);
         if (!user) {
             return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
         }
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
         const { organization, amount, cause, date, impact_description } = validation.data;
         const now = Date.now();
 
-        db.prepare(`
+        await db.prepare(`
       INSERT INTO donations (id, user_id, organization, amount, cause, date, impact_description, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
 
         // Also Log as an expense automatically tagged as donation
         const expenseId = uuidv4();
-        db.prepare(`
+        await db.prepare(`
       INSERT INTO expenses (id, user_id, category, amount, description, date, payment_method, is_donation, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
@@ -90,3 +90,4 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: error.message || 'Internal server error' }, { status: 500 });
     }
 }
+

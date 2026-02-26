@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     const db = getDb();
 
     // Check if user already exists
-    const existingUser = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+    const existingUser = await db.prepare('SELECT id FROM users WHERE email = ?').get(email);
     if (existingUser) {
       return NextResponse.json(
         { success: false, error: 'Email already registered' },
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     const userId = uuidv4();
     const now = Date.now();
 
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO users (id, email, password_hash, name, currency, timezone, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(userId, email, passwordHash, name, 'USD', 'UTC', now, now);
@@ -81,3 +81,4 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+

@@ -89,7 +89,7 @@ function parseExpenseFromText(text: string): {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = getCurrentUser(request);
+    const user = await getCurrentUser(request);
     if (!user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
@@ -131,3 +131,4 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+

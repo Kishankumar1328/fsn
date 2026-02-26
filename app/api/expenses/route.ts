@@ -7,7 +7,7 @@ import { ExpenseSchema, ExpenseQuerySchema } from '@/lib/schemas';
 export async function POST(request: NextRequest) {
   try {
     await initializeDbAsync();
-    const user = getCurrentUser(request);
+    const user = await getCurrentUser(request);
     if (!user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
@@ -30,12 +30,12 @@ export async function POST(request: NextRequest) {
     const now = Date.now();
     const expenseId = uuidv4();
 
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO expenses (id, user_id, category, amount, description, date, payment_method, tags, mood, is_donation, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(expenseId, user.id, category, amount, description || null, date, payment_method, tags || null, mood || null, is_donation ? 1 : 0, now, now);
 
-    const expense = db.prepare('SELECT * FROM expenses WHERE id = ?').get(expenseId);
+    const expense = await db.prepare('SELECT * FROM expenses WHERE id = ?').get(expenseId);
 
     return NextResponse.json(
       {
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     await initializeDbAsync();
-    const user = getCurrentUser(request);
+    const user = await getCurrentUser(request);
     if (!user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
 
     // Get total count
     const countQuery = query.replace('SELECT *', 'SELECT COUNT(*) as count');
-    const countResult = db.prepare(countQuery).get(...params) as any;
+    const countResult = await db.prepare(countQuery).get(...params) as any;
     const total = countResult.count;
 
     // Get paginated results
@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
     query += ' ORDER BY date DESC LIMIT ? OFFSET ?';
     params.push(limit, offset);
 
-    const expenses = db.prepare(query).all(...params);
+    const expenses = await db.prepare(query).all(...params);
 
     return NextResponse.json({
       success: true,
@@ -133,3 +133,4 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+

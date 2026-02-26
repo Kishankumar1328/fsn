@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
+import { getDb, initializeDbAsync } from '@/lib/db';
 import { verifyAuth } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
+    await initializeDbAsync();
     const userId = await verifyAuth(request);
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -21,12 +22,12 @@ export async function POST(request: NextRequest) {
       : Date.now();
 
     // Get user profile
-    const user = db
+    const user = await db
       .prepare('SELECT email, name FROM users WHERE id = ?')
       .get(userId) as { email: string; name: string } | undefined;
 
     // Get expenses for the period
-    const expenses = db
+    const expenses = await db
       .prepare(
         `
         SELECT id, description, amount, category, date
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
       }>;
 
     // Get income for the period
-    const income = db
+    const income = await db
       .prepare(
         `
         SELECT id, source, amount, date
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Get budgets for comparison
-    const budgets = db
+    const budgets = await db
       .prepare(
         `
         SELECT id, category, limit_amount
@@ -109,7 +110,7 @@ export async function POST(request: NextRequest) {
           limit: b.limit_amount,
           spent: spentForCategory,
           remaining: b.limit_amount - spentForCategory,
-          percentage: (spentForCategory / b.limit_amount) * 100,
+          percentage: (spentForCategory / (b.limit_amount || 1)) * 100,
         };
       }),
       topExpenses: expenses.slice(0, 5).map((e) => ({

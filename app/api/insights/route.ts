@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
+import { getDb, initializeDbAsync } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { formatCurrency } from '@/lib/utils-format';
 
@@ -13,7 +13,8 @@ interface Insight {
 
 export async function GET(request: NextRequest) {
   try {
-    const userProfile = getCurrentUser(request);
+    await initializeDbAsync();
+    const userProfile = await getCurrentUser(request);
     if (!userProfile) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
     const insights: Insight[] = [];
 
     // Get current month expenses by category
-    const currentExpenses = db
+    const currentExpenses = await db
       .prepare(
         `
         SELECT category, SUM(amount) as total, COUNT(*) as count
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest) {
       .all(userId, monthAgo) as Array<{ category: string; total: number; count: number }>;
 
     // Get previous month expenses for trend analysis
-    const previousExpenses = db
+    const previousExpenses = await db
       .prepare(
         `
         SELECT category, SUM(amount) as total
@@ -55,10 +56,11 @@ export async function GET(request: NextRequest) {
       }>;
 
     const totalCurrentSpending = currentExpenses.reduce((sum, e) => sum + e.total, 0);
-    const avgTransactionAmount = currentExpenses.length > 0 ? totalCurrentSpending / currentExpenses.reduce((sum, e) => sum + e.count, 0) : 0;
+    const totalTransactions = currentExpenses.reduce((sum, e) => sum + e.count, 0);
+    const avgTransactionAmount = totalTransactions > 0 ? totalCurrentSpending / totalTransactions : 0;
 
     // Behavioral Detection - Emotional Spending
-    const emotionalExpenses = db.prepare(`
+    const emotionalExpenses = await db.prepare(`
         SELECT category, amount, mood, description
         FROM expenses
         WHERE user_id = ? AND date >= ? AND (mood = 'stressed' OR mood = 'bored' OR mood = 'sad')
@@ -70,14 +72,14 @@ export async function GET(request: NextRequest) {
         insights.push({
           type: 'spending_pattern',
           title: 'Emotional Spending Spike',
-          description: `You've spent ${formatCurrency(emotionalTotal)} while feeling stressed or bored. This accounts for ${(emotionalTotal / totalCurrentSpending * 100).toFixed(0)}% of your monthly budget.`,
+          description: `You've spent ${formatCurrency(emotionalTotal)} while feeling stressed or bored. This accounts for ${(emotionalTotal / (totalCurrentSpending || 1) * 100).toFixed(0)}% of your monthly budget.`,
           severity: 'warning'
         });
       }
     }
 
     // Behavioral Detection - Anomaly Detection (Statistical)
-    const largeTransactions = db.prepare(`
+    const largeTransactions = await db.prepare(`
        SELECT category, amount, description
        FROM expenses
        WHERE user_id = ? AND date >= ? AND amount > ?
@@ -87,7 +89,7 @@ export async function GET(request: NextRequest) {
       insights.push({
         type: 'trend',
         title: 'Financial Anomaly Detected',
-        description: `We noticed ${largeTransactions.length} transactions significantly higher than your average ($${avgTransactionAmount.toFixed(2)}). Review these for potential mis-logging or impulse.`,
+        description: `We noticed ${largeTransactions.length} transactions significantly higher than your average (${formatCurrency(avgTransactionAmount)}). Review these for potential mis-logging or impulse.`,
         severity: 'info'
       });
     }
@@ -122,10 +124,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Behavioral Detection - Weekend Spikes
-    const weekendExpenses = db.prepare(`
+    // MySQL use DAYOFWEEK(FROM_UNIXTIME(date/1000)) IN (1, 7) for Sunday and Saturday
+    const weekendExpenses = await db.prepare(`
       SELECT SUM(amount) as total
       FROM expenses
-      WHERE user_id = ? AND date >= ? AND (strftime('%w', date/1000, 'unixepoch') = '0' OR strftime('%w', date/1000, 'unixepoch') = '6')
+      WHERE user_id = ? AND date >= ? AND DAYOFWEEK(FROM_UNIXTIME(date/1000)) IN (1, 7)
     `).get(userId, monthAgo) as { total: number };
 
     const weekendTotal = weekendExpenses?.total || 0;
@@ -140,7 +143,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Behavioral Detection - Subscription Creep
-    const potentialSubscriptions = db.prepare(`
+    const potentialSubscriptions = await db.prepare(`
       SELECT category, amount, COUNT(*) as frequency
       FROM expenses
       WHERE user_id = ? AND date >= ?
@@ -160,7 +163,7 @@ export async function GET(request: NextRequest) {
     // Top spending category insight
     const topCategory = currentExpenses[0];
     if (topCategory) {
-      const percentage = (topCategory.total / totalCurrentSpending) * 100;
+      const percentage = (topCategory.total / (totalCurrentSpending || 1)) * 100;
       insights.push({
         type: 'spending_pattern',
         title: 'Top Spending Category',
@@ -171,7 +174,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Budget warnings
-    const budgets = db
+    const budgets = await db
       .prepare(
         `
         SELECT id, category, limit_amount
@@ -183,7 +186,7 @@ export async function GET(request: NextRequest) {
 
     for (const budget of budgets) {
       const spent = currentExpenses.find((e) => e.category === budget.category)?.total || 0;
-      const percentage = (spent / budget.limit_amount) * 100;
+      const percentage = (spent / (budget.limit_amount || 1)) * 100;
 
       if (percentage > 80) {
         insights.push({
@@ -191,7 +194,7 @@ export async function GET(request: NextRequest) {
           title: percentage >= 100 ? 'Budget Exceeded' : 'Budget Alert',
           description:
             percentage >= 100
-              ? `You have exceeded your ${budget.category} budget by $${(spent - budget.limit_amount).toFixed(2)}`
+              ? `You have exceeded your ${budget.category} budget by ${formatCurrency(spent - budget.limit_amount)}`
               : `Your ${budget.category} budget is ${percentage.toFixed(0)}% used.`,
           severity: percentage >= 100 ? 'warning' : 'info',
           data: { category: budget.category, percentage, spent, limit: budget.limit_amount },
@@ -200,7 +203,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Goal progress
-    const goals = db
+    const goals = await db
       .prepare(
         `
         SELECT id, title, target_amount, current_amount, deadline
@@ -228,7 +231,7 @@ export async function GET(request: NextRequest) {
         insights.push({
           type: 'goal_progress',
           title: 'Goal Target Analysis',
-          description: `To reach your ${goal.title} goal in ${daysLeft} days, you need to set aside $${dailyRequired.toFixed(2)} per day.`,
+          description: `To reach your ${goal.title} goal in ${daysLeft} days, you need to set aside ${formatCurrency(dailyRequired)} per day.`,
           severity: 'info'
         });
       }

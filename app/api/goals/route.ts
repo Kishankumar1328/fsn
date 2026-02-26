@@ -7,7 +7,7 @@ import { GoalSchema } from '@/lib/schemas';
 export async function POST(request: NextRequest) {
   try {
     await initializeDbAsync();
-    const user = getCurrentUser(request);
+    const user = await getCurrentUser(request);
     if (!user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
@@ -30,12 +30,12 @@ export async function POST(request: NextRequest) {
     const now = Date.now();
     const goalId = uuidv4();
 
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO goals (id, user_id, title, target_amount, current_amount, deadline, category, priority, status, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(goalId, user.id, title, target_amount, current_amount || 0, deadline, category, priority, 'active', now, now);
 
-    const goal = db.prepare('SELECT * FROM goals WHERE id = ?').get(goalId);
+    const goal = await db.prepare('SELECT * FROM goals WHERE id = ?').get(goalId);
 
     return NextResponse.json(
       {
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     await initializeDbAsync();
-    const user = getCurrentUser(request);
+    const user = await getCurrentUser(request);
     if (!user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
     }
 
     const db = getDb();
-    const goals = db.prepare(`
+    const goals = await db.prepare(`
       SELECT * FROM goals WHERE user_id = ? ORDER BY deadline ASC
     `).all(user.id);
 
@@ -81,3 +81,4 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+

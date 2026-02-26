@@ -7,7 +7,7 @@ import { IncomeSchema } from '@/lib/schemas';
 export async function POST(request: NextRequest) {
   try {
     await initializeDbAsync();
-    const user = getCurrentUser(request);
+    const user = await getCurrentUser(request);
     if (!user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
@@ -30,12 +30,12 @@ export async function POST(request: NextRequest) {
     const now = Date.now();
     const incomeId = uuidv4();
 
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO income (id, user_id, source, amount, description, date, recurring, recurrence_period, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(incomeId, user.id, source, amount, description || null, date, recurring ? 1 : 0, recurrence_period || null, now, now);
 
-    const income = db.prepare('SELECT * FROM income WHERE id = ?').get(incomeId);
+    const income = await db.prepare('SELECT * FROM income WHERE id = ?').get(incomeId);
 
     return NextResponse.json(
       {
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     await initializeDbAsync();
-    const user = getCurrentUser(request);
+    const user = await getCurrentUser(request);
     if (!user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
@@ -71,12 +71,12 @@ export async function GET(request: NextRequest) {
     const db = getDb();
 
     // Get total count
-    const countResult = db.prepare('SELECT COUNT(*) as count FROM income WHERE user_id = ?').get(user.id) as any;
+    const countResult = await db.prepare('SELECT COUNT(*) as count FROM income WHERE user_id = ?').get(user.id) as any;
     const total = countResult.count;
 
     // Get paginated results
     const offset = (page - 1) * limit;
-    const incomes = db.prepare(`
+    const incomes = await db.prepare(`
       SELECT * FROM income WHERE user_id = ?
       ORDER BY date DESC LIMIT ? OFFSET ?
     `).all(user.id, limit, offset);
@@ -101,3 +101,4 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+

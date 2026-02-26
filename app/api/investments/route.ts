@@ -19,11 +19,11 @@ const InvestmentSchema = z.object({
 export async function GET(request: NextRequest) {
     try {
         await initializeDbAsync();
-        const user = getCurrentUser(request);
+        const user = await getCurrentUser(request);
         if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
         const db = getDb();
-        const investments = db.prepare(`SELECT * FROM investments WHERE user_id = ? ORDER BY buy_date DESC`).all(user.id) as any[];
+        const investments = await db.prepare(`SELECT * FROM investments WHERE user_id = ? ORDER BY buy_date DESC`).all(user.id) as any[];
 
         // Compute summary stats
         const totalInvested = investments.reduce((s, i) => s + i.buy_price * i.shares, 0);
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         await initializeDbAsync();
-        const user = getCurrentUser(request);
+        const user = await getCurrentUser(request);
         if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
         const body = await request.json();
@@ -74,15 +74,16 @@ export async function POST(request: NextRequest) {
         const now = Date.now();
         const id = uuidv4();
 
-        db.prepare(`
+        await db.prepare(`
       INSERT INTO investments (id, user_id, ticker, name, type, shares, buy_price, current_price, buy_date, sector, notes, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(id, user.id, ticker, name, type, shares, buy_price, current_price, buy_date, sector || null, notes || null, now, now);
 
-        const investment = db.prepare(`SELECT * FROM investments WHERE id = ?`).get(id);
+        const investment = await db.prepare(`SELECT * FROM investments WHERE id = ?`).get(id);
         return NextResponse.json({ success: true, data: investment }, { status: 201 });
     } catch (error) {
         console.error('[FinSentinel] Create investment error:', error);
         return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
     }
 }
+

@@ -7,7 +7,7 @@ import { BudgetSchema } from '@/lib/schemas';
 export async function POST(request: NextRequest) {
   try {
     await initializeDbAsync();
-    const user = getCurrentUser(request);
+    const user = await getCurrentUser(request);
     if (!user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
@@ -30,12 +30,12 @@ export async function POST(request: NextRequest) {
     const now = Date.now();
     const budgetId = uuidv4();
 
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO budgets (id, user_id, category, limit_amount, spent_amount, period, start_date, end_date, alert_threshold, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(budgetId, user.id, category, limit_amount, spent_amount || 0, period, start_date, end_date || null, alert_threshold, now, now);
 
-    const budget = db.prepare('SELECT * FROM budgets WHERE id = ?').get(budgetId);
+    const budget = await db.prepare('SELECT * FROM budgets WHERE id = ?').get(budgetId);
 
     return NextResponse.json(
       {
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     await initializeDbAsync();
-    const user = getCurrentUser(request);
+    const user = await getCurrentUser(request);
     if (!user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
@@ -67,15 +67,15 @@ export async function GET(request: NextRequest) {
     const db = getDb();
 
     // Fetch all budgets for this user
-    const budgets = db.prepare(`
+    const budgets = await db.prepare(`
       SELECT * FROM budgets WHERE user_id = ? ORDER BY created_at DESC
     `).all(user.id) as any[];
 
     // Calculate LIVE spent_amount from actual expenses (last 30 days, case-insensitive category match)
     const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
 
-    const budgetsWithLiveSpend = budgets.map((budget: any) => {
-      const spentResult = db.prepare(`
+    const budgetsWithLiveSpend = await Promise.all(budgets.map(async (budget: any) => {
+      const spentResult = await db.prepare(`
         SELECT COALESCE(SUM(amount), 0) as spent
         FROM expenses
         WHERE user_id = ? AND LOWER(category) = LOWER(?) AND date >= ?
@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
         ...budget,
         spent_amount: spentResult?.spent || 0,
       };
-    });
+    }));
 
     return NextResponse.json({
       success: true,
@@ -99,4 +99,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

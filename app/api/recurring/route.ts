@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     }
 
     const db = getDb();
-    const recurring = db
+    const recurring = await db
       .prepare(
         `
         SELECT id, type, description, amount, category, frequency, next_date, is_active
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     const id = uuid();
     const now = Date.now();
 
-    db.prepare(
+    await db.prepare(
       `
       INSERT INTO recurring_transactions (id, user_id, type, amount, description, category, frequency, next_date, is_active, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
@@ -57,3 +57,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to create recurring transaction' }, { status: 500 });
   }
 }
+

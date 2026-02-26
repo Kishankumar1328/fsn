@@ -37,14 +37,14 @@ export function getTokenFromRequest(request: NextRequest): string | null {
   return null;
 }
 
-export function getUserFromToken(token: string): UserProfile | null {
+export async function getUserFromToken(token: string): Promise<UserProfile | null> {
   const decoded = verifyToken(token);
   if (!decoded) {
     return null;
   }
 
   const db = getDb();
-  const user = db.prepare(`
+  const user = await db.prepare(`
     SELECT id, email, name, currency, timezone FROM users WHERE id = ?
   `).get(decoded.userId) as any;
 
@@ -72,7 +72,7 @@ export function requireAuth(handler: Function) {
       });
     }
 
-    const user = getUserFromToken(token);
+    const user = await getUserFromToken(token);
     if (!user) {
       return new Response(JSON.stringify({ success: false, error: 'Invalid token' }), {
         status: 401,
@@ -90,15 +90,15 @@ export function requireAuth(handler: Function) {
 export async function verifyAuth(request: NextRequest): Promise<string | null> {
   const token = getTokenFromRequest(request);
   if (!token) return null;
-  
+
   const decoded = verifyToken(token);
   return decoded ? decoded.userId : null;
 }
 
-export function getCurrentUser(request: NextRequest): UserProfile | null {
+export async function getCurrentUser(request: NextRequest): Promise<UserProfile | null> {
   const token = getTokenFromRequest(request);
   if (!token) {
     return null;
   }
-  return getUserFromToken(token);
+  return await getUserFromToken(token);
 }
